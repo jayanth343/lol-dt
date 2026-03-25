@@ -23,12 +23,29 @@ export const apiMe       = ()                => get('/auth/me');
 export const apiTeams    = ()     => get('/teams');
 export const apiTeam     = (id)   => get(`/teams/${id}`);
 export const apiAddTeam  = (data) => post('/teams', data);
+export const apiManageTeam = (id, data) => put(`/teams/${id}/manage`, data);
+export const apiTeamSubTeams = (id) => get(`/teams/${id}/subteams`);
+export const apiCreateSubTeam = (teamId, data) => post(`/teams/${teamId}/subteams`, data);
+export const apiUpdateSubTeam = (teamId, subTeamId, data) => put(`/teams/${teamId}/subteams/${subTeamId}`, data);
+export const apiDeleteSubTeam = (teamId, subTeamId) => del(`/teams/${teamId}/subteams/${subTeamId}`);
 
 // ── Players ───────────────────────────────────────────────────────
 export const apiPlayers         = (params = {}) => get('/players?' + new URLSearchParams(params));
 export const apiRegisterPlayer  = (data)        => post('/players/register', data);
 export const apiUpdatePlayer    = (id, data)    => put(`/players/${id}`, data);
-
+// ── Tournaments ──────────────────────────────────────────────────
+export const apiTournaments = () => get('/tournaments');
+export const apiTournament = (id) => get(`/tournaments/${id}`);
+export const apiTournamentMatches = (id) => get(`/tournaments/${id}/matches`);
+export const apiCreateTournament = (data) => post('/tournaments', data);
+export const apiUpdateTournament = (id, data) => put(`/tournaments/${id}`, data);
+export const apiUpdateTournamentTeams = (id, teamIds, minTeams, maxTeams) => put(`/tournaments/${id}/teams`, { teamIds, minTeams, maxTeams });
+export const apiTournamentLeagueStandings = (id) => get(`/tournaments/${id}/standings`);
+export const apiGenerateLeagueMatches = (id, data) => post(`/tournaments/${id}/generate-league`, data);
+export const apiGenerateKnockoutMatches = (id, data) => post(`/tournaments/${id}/generate-knockout`, data);
+export const apiUpdateTournamentSchedule = (id, schedules) => put(`/tournaments/${id}/matches/schedule`, { schedules });
+export const apiSports = () => get('/sports');
+export const apiCreateSport = (data) => post('/sports', data);
 // ── Matches ───────────────────────────────────────────────────────
 export const apiMatches    = (params = {}) => get('/matches?' + new URLSearchParams(params));
 export const apiFantasyMatches = ()        => get('/matches/fantasy');

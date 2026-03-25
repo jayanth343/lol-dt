@@ -1,8 +1,23 @@
 import React,{useState,useEffect} from 'react';
+import { createPortal } from 'react-dom';
 import {NavLink} from 'react-router-dom';
 import {useAuth} from '../context/AuthContext';
 
-const SI={cricket:'🏏',football:'⚽',badminton:'🏸',table_tennis:'🏓',carrom:'🎯'};
+import SportsCricketIcon from '@mui/icons-material/SportsCricket';
+import SportsSoccerIcon from '@mui/icons-material/SportsSoccer';
+import SportsTennisIcon from '@mui/icons-material/SportsTennis';
+import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
+import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
+
+export const SportIcon = ({ sport, style={} }) => {
+  const s = { fontSize: 'inherit', verticalAlign: 'middle', ...style };
+  if (!sport) return <HelpOutlineIcon style={s} />;
+  const sp = sport.toLowerCase();
+  if (sp.includes('cricket')) return <SportsCricketIcon style={s} />;
+  if (sp.includes('football') || sp.includes('soccer')) return <SportsSoccerIcon style={s} />;
+  if (sp.includes('badminton') || sp.includes('tennis')) return <SportsTennisIcon style={s} />;
+  return <EmojiEventsIcon style={s} />;
+};
 
 export const TL=({color='#444',abbr='?',size=32,sq=false})=>(
   <div className={`tl${sq?' tl-sq':''}`}
@@ -22,10 +37,12 @@ export const Ldr=({txt='Loading…'})=>(
 
 export const SportFilt=({val,onChange})=>(
   <div className="sfs">
-    {[['all','All'],['cricket','🏏 Cricket'],['football','⚽ Football'],
-      ['badminton','🏸 Badminton'],['table_tennis','🏓 TT'],['carrom','🎯 Carrom']]
-      .map(([k,l])=>(
-        <button key={k} className={`sf${val===k?' on':''}`} onClick={()=>onChange(k)}>{l}</button>
+    {['all','cricket','football','badminton','table_tennis','carrom']
+      .map((k)=>(
+        <button key={k} className={`sf${val===k?' on':''}`} onClick={()=>onChange(k)}>
+          {k !== 'all' && <SportIcon sport={k} style={{marginRight: 4}} />}
+          {k.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+        </button>
       ))}
   </div>
 );
@@ -36,25 +53,38 @@ export const MatchRow=({match,onClick})=>{
   const live=match.status==='live';
   const done=match.status==='completed';
   const wid=match.winnerId?._id||match.winnerId;
+  const s1=String(match.team1Score||'0');
+  const s2=String(match.team2Score||'0');
+  const isLong = s1.length>3 || s2.length>3;
   return (
     <div className={`mrow${live?' is-live':''}`} onClick={()=>onClick&&onClick(match)}>
       <div className="mt">
         <div className="mt-team">
           <TL color={t1.color} abbr={t1.abbreviation} size={28}/>
-          <div>
+          <div style={{minWidth: 0}}>
             <div className={`mt-name${done&&wid===t1._id?' w':''}`}>{t1.name||'—'}</div>
-            <div style={{fontSize:10,color:'var(--tx4)',marginTop:1}}>{match.round}</div>
+            <div style={{fontSize:10,color:'var(--tx4)',marginTop:1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{match.round}</div>
           </div>
         </div>
         <div className="mt-score-wrap">
-          <div className="mt-score">{live||done?`${match.team1Score||0}–${match.team2Score||0}`:'vs'}</div>
-          <span className="mt-sport">{SI[match.sport]} {match.sport?.replace('_',' ').toUpperCase()}</span>
+          <div className="mt-score" style={isLong ? {fontSize: 15, display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'center', whiteSpace: 'nowrap'} : {}}>
+            {live||done ? (
+              isLong ? (
+                <>
+                  <span>{s1}</span>
+                  <div style={{fontSize: 9, color: 'var(--tx4)', background: 'var(--card3)', padding: '1px 4px', borderRadius: 2, lineHeight: 1}}>VS</div>
+                  <span>{s2}</span>
+                </>
+              ) : `${s1} – ${s2}`
+            ) : 'vs'}
+          </div>
+          <span className="mt-sport" style={{marginTop: 6}}><SportIcon sport={match.sport} style={{fontSize: 14, marginRight: 4}} /> {match.sport?.replace('_',' ').toUpperCase()}</span>
         </div>
         <div className="mt-team r">
           <TL color={t2.color} abbr={t2.abbreviation} size={28}/>
-          <div style={{textAlign:'right'}}>
+          <div style={{textAlign:'right', minWidth: 0}}>
             <div className={`mt-name${done&&wid===t2._id?' w':''}`}>{t2.name||'—'}</div>
-            <div style={{fontSize:10,color:'var(--tx4)',marginTop:1}}>{match.matchTime} · {match.venue}</div>
+            <div style={{fontSize:10,color:'var(--tx4)',marginTop:1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{match.matchTime} · {match.venue}</div>
           </div>
         </div>
       </div>
@@ -68,7 +98,7 @@ export const MatchRow=({match,onClick})=>{
 };
 
 export const Navbar=({onAuth})=>{
-  const {user,isAdmin,isOwner,signOut,role}=useAuth();
+  const {user,isAdmin,teamId,signOut,role}=useAuth();
   const [cd,setCd]=useState({d:'--',h:'--',m:'--'});
   useEffect(()=>{
     const t=()=>{const d=new Date('2026-03-30T10:00:00')-new Date();if(d>0)setCd({d:String(Math.floor(d/86400000)).padStart(2,'0'),h:String(Math.floor((d%86400000)/3600000)).padStart(2,'0'),m:String(Math.floor((d%3600000)/60000)).padStart(2,'0')});};
@@ -82,7 +112,9 @@ export const Navbar=({onAuth})=>{
         <span className="logo-s2">S2</span>
       </NavLink>
       <div className="navs">
-        {[['/',       '🏠','Home'],
+        {[
+          ['/',       '🏠','Home'],
+          ['/tournaments','🏆','Tournaments'],
           ['/matches','📅','Matches'],
           ['/standings','📊','Standings'],
           ['/teams',  '👥','Teams'],
@@ -90,12 +122,13 @@ export const Navbar=({onAuth})=>{
           ['/auction','🔨','Auction'],
           ['/fantasy','⭐','Fantasy'],
           ['/register','📝','Register'],
+          ...(user && teamId ? [['/my-team','🛡️','My Team']] : []),
+          ...(isAdmin ? [['/admin','⚙️','Admin']] : []),
         ].map(([to,ic,lb])=>(
           <NavLink key={to} to={to} end={to==='/'} className={({isActive})=>`nl${isActive?' active':''}`}>
             {ic} <span className="nlb">{lb}</span>
           </NavLink>
         ))}
-        {isOwner&&<NavLink to="/admin" className={({isActive})=>`nl${isActive?' active':''}`}>⚙️ <span className="nlb">Admin</span></NavLink>}
       </div>
       <div className="nav-right">
         <span style={{color:'var(--tx4)',fontSize:11,whiteSpace:'nowrap'}}>Eval {cd.d}d {cd.h}h</span>
@@ -124,7 +157,7 @@ export const AuthModal=({onClose})=>{
     const {error}=mode==='login'?await signIn(form.email,form.password):await signUp({name:form.name,email:form.email,password:form.password,role:form.role});
     setBusy(false);if(error)setErr(error);else onClose();
   };
-  return (
+  return createPortal(
     <div className="mo" onClick={e=>e.target===e.currentTarget&&onClose()}>
       <div className="mb">
         <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:22}}>
@@ -140,7 +173,7 @@ export const AuthModal=({onClose})=>{
           <div className="fg"><label className="fl">Full name</label><input className="fi" placeholder="Your name" value={form.name} onChange={e=>setForm({...form,name:e.target.value})}/></div>
           <div className="fg"><label className="fl">Role</label>
             <select className="fs" value={form.role} onChange={e=>setForm({...form,role:e.target.value})}>
-              <option value="viewer">Viewer</option><option value="team_owner">Team Owner</option><option value="admin">Admin</option>
+              <option value="viewer">Viewer</option><option value="team_owner">Team Owner</option><option value="captain">Captain</option><option value="admin">Admin</option>
             </select>
           </div>
         </>}
@@ -156,6 +189,7 @@ export const AuthModal=({onClose})=>{
           </button>
         </p>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

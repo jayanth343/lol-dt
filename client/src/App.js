@@ -13,11 +13,16 @@ import Auction     from './pages/Auction';
 import Register    from './pages/Register';
 import Admin       from './pages/Admin';
 import Fantasy     from './pages/Fantasy';
+import { ToastProvider } from './context/ToastContext';
+
+import Tournaments from './pages/Tournaments';
+import TournamentDetail from './pages/TournamentDetail';
 
 const Guard = ({ children, need }) => {
-  const { isAdmin, isOwner } = useAuth();
+  const { isAdmin, isOwner, user, teamId } = useAuth();
   if (need === 'admin' && !isAdmin) return <Navigate to="/" replace />;
   if (need === 'owner' && !isOwner) return <Navigate to="/" replace />;
+  if (need === 'team' && (!user || !teamId)) return <Navigate to="/" replace />;
   return children;
 };
 
@@ -30,10 +35,13 @@ function Shell() {
       <main style={{ minHeight: 'calc(100vh - 52px)', paddingBottom: 40 }}>
         <Routes>
           <Route path="/"            element={<Home />} />
+          <Route path="/tournaments" element={<Tournaments />} />
+          <Route path="/tournaments/:id" element={<TournamentDetail />} />
           <Route path="/matches"     element={<Matches />} />
           <Route path="/matches/:id" element={<MatchDetail />} />
           <Route path="/standings"   element={<Standings />} />
           <Route path="/teams"       element={<Teams />} />
+          <Route path="/my-team"    element={<Guard need="team"><Teams onlyMyTeam /></Guard>} />
           <Route path="/players"     element={<Players />} />
           <Route path="/auction"     element={<Auction />} />
           <Route path="/fantasy"     element={<Fantasy />} />
@@ -53,7 +61,9 @@ export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <Shell />
+        <ToastProvider>
+          <Shell />
+        </ToastProvider>
       </AuthProvider>
     </BrowserRouter>
   );

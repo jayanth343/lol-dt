@@ -1,8 +1,9 @@
 import React,{useState,useEffect,useRef} from 'react';
 import {useParams,useNavigate} from 'react-router-dom';
-import {TL,Ldr} from '../components/Shared';
-import {apiMatch,getSocket} from '../lib/api';
+import {TL,Ldr,SportIcon} from '../components/Shared';
+import {apiMatch,apiUpdateMatch,getSocket} from '../lib/api';
 import {useAuth} from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import ScorerPanel from '../components/ScorerPanel';
 
 // ── Worm Chart (run progression by over) ─────────────────────────
@@ -106,7 +107,7 @@ function OverSummary({events,teamId}){
 function ShareCard({match,t1,t2}){
   const [copied,setCopied]=useState(false);
   const SI2={cricket:'🏏',football:'⚽',badminton:'🏸',table_tennis:'🏓',carrom:'🎯'};
-  const sport=SI2[match.sport]||'🏆';
+  const sport=SI2[match.sport]||'🏆'; // Keeping emojis just for WhatsApp sharing plain text since material ui isn't rendered there
   const winner=match.winnerId;
   const date=new Date(match.matchDate).toLocaleDateString('en-IN',{day:'numeric',month:'short'});
   const text=
@@ -196,7 +197,8 @@ function Ball({v,ex}){
   return <div className="ball bn">{v}</div>;
 }
 export default function MatchDetail(){
-  const {id}=useParams();const nav=useNavigate();const {isOwner}=useAuth();
+  const {id}=useParams();const nav=useNavigate();const {isOwner,isAdmin}=useAuth();
+  const { showToast } = useToast();
   const [match,setMatch]=useState(null);const [events,setEvents]=useState([]);const [loading,setLoading]=useState(true);
   useEffect(()=>{apiMatch(id).then(m=>{setMatch(m);setEvents((m.scoreEvents||[]).slice().reverse());setLoading(false);});},[id]);
   useEffect(()=>{
@@ -207,21 +209,36 @@ export default function MatchDetail(){
     socket.on('match:statusChange',({matchId,status})=>{if(matchId!==id)return;setMatch(p=>p?{...p,status}:p);});
     return()=>{socket.emit('match:leave',id);['cricket:update','football:update','points:update','match:statusChange'].forEach(e=>socket.off(e));};
   },[id]);
+
+  const startMatch = async () => {
+    if (!match?._id) return;
+    const res = await apiUpdateMatch(match._id, { status: 'live' });
+    if (res?.error) return showToast(res.error, 'error');
+    setMatch((prev) => prev ? { ...prev, status: 'live' } : prev);
+    getSocket().emit('match:setStatus', { matchId: match._id, status: 'live' });
+    showToast('Match started', 'success');
+  };
+
   if(loading) return <div className="pg"><Ldr/></div>;
   if(!match)  return <div className="pg"><div className="al al-er">Match not found.</div></div>;
   const t1=match.team1Id||{};const t2=match.team2Id||{};
   const cl=match.cricketLive||{};const fl=match.footballLive||{};const pl=match.pointsLive||{};
   const live=match.status==='live';const done=match.status==='completed';
+  const matchUrl = `${window.location.origin}/matches/${id}`;
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(matchUrl)}`;
   return (
     <div className="pg fade-up">
-      <button className="btn btn-s btn-sm" style={{marginBottom:16}} onClick={()=>nav('/matches')}>← Back</button>
+      <div style={{display:'flex',gap:8,marginBottom:16}}>
+        <button className="btn btn-s btn-sm" onClick={()=>nav('/matches')}>← Back</button>
+        {isAdmin && match.status==='upcoming' && <button className="btn btn-ok btn-sm" onClick={startMatch}>Start Match</button>}
+      </div>
       <div className="two-col">
         <div className="col">
           {/* SCORECARD */}
           <div className="sc">
             <div className="sc-stripe"/>
             <div className="sc-head">
-              <span style={{fontSize:12,color:'var(--tx3)',fontWeight:600}}>{SI[match.sport]} {match.sport?.replace('_',' ')} · {match.round} · {match.venue}</span>
+              <span style={{display: 'flex', alignItems: 'center', fontSize:12,color:'var(--tx3)',fontWeight:600}}><SportIcon sport={match.sport} style={{fontSize: 16, marginRight: 5}}/> {match.sport?.replace('_',' ')} · {match.round} · {match.venue}</span>
               <div style={{display:'flex',gap:8}}>
                 {live&&<span className="live-dot">LIVE</span>}
                 {done&&<span style={{background:'var(--grn)',color:'#fff',fontSize:10,fontWeight:700,padding:'3px 8px',borderRadius:3}}>FINAL</span>}
@@ -361,11 +378,22 @@ export default function MatchDetail(){
 
           <div className="card">
             <div className="ch"><span className="ct">Match info</span></div>
-            {[['📅 Date',new Date(match.matchDate).toLocaleDateString('en-IN',{day:'numeric',month:'long',year:'numeric'})],['⏰ Time',match.matchTime],['📍 Venue',match.venue],['🏆 Round',match.round],[`${SI[match.sport]} Sport`,match.sport?.replace('_',' ')],['Status',match.status]].map(([l,v])=>(
+            {[['📅 Date',new Date(match.matchDate).toLocaleDateString('en-IN',{day:'numeric',month:'long',year:'numeric'})],['⏰ Time',match.matchTime],['🟢 Started',match.startedAt?new Date(match.startedAt).toLocaleString('en-IN'):'—'],['⏱ Duration',match.actualDurationMins?`${match.actualDurationMins} mins`:'—'],['📍 Venue',match.venue],['🏆 Round',match.round],['🏈 Sport',match.sport?.replace('_',' ')],['⚙️ Status',match.status]].map(([l,v])=>(
               <div key={l} style={{display:'flex',justifyContent:'space-between',padding:'10px 18px',borderBottom:'1px solid var(--line)',fontSize:13}}>
-                <span style={{color:'var(--tx3)'}}>{l}</span><span style={{fontWeight:600,textTransform:'capitalize'}}>{v}</span>
+                <span style={{color:'var(--tx3)', display: 'flex', alignItems: 'center'}}>{l.startsWith('🏈') ? <><SportIcon sport={match.sport} style={{fontSize: 16, marginRight: 6}}/> Sport</> : l}</span><span style={{fontWeight:600,textTransform:'capitalize'}}>{v}</span>
               </div>
             ))}
+          </div>
+
+          <div className="card" style={{marginTop:12}}>
+            <div className="ch"><span className="ct">QR — Open this match</span></div>
+            <div style={{padding:'14px 18px',display:'flex',alignItems:'center',gap:14}}>
+              <img src={qrUrl} alt="Match QR" style={{width:120,height:120,borderRadius:8,border:'1px solid var(--line)'}} />
+              <div style={{fontSize:12,color:'var(--tx3)'}}>
+                <div>Scan to open live match page on mobile.</div>
+                <a href={matchUrl} target="_blank" rel="noreferrer" style={{color:'var(--gold)',wordBreak:'break-all'}}>{matchUrl}</a>
+              </div>
+            </div>
           </div>
         </div>
       </div>

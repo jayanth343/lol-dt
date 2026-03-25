@@ -220,11 +220,11 @@ body::before{
 .mrow.is-live{background:rgba(240,24,58,.03);}
 .mrow.is-live::before{opacity:1;box-shadow:0 0 8px var(--red-glow);}
 .mt{flex:1;display:flex;align-items:center;gap:6px;min-width:0;}
-.mt-team{display:flex;align-items:center;gap:9px;min-width:112px;}
+  .mt-team{flex:1;display:flex;align-items:center;gap:9px;min-width:0;}
 .mt-team.r{flex-direction:row-reverse;text-align:right;}
-.mt-name{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:105px;color:var(--tx2);}
-.mt-name.w{font-weight:700;color:var(--tx);}
-.mt-score-wrap{width:106px;flex-shrink:0;text-align:center;}
+  .mt-name{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--tx2);}
+  .mt-name.w{font-weight:700;color:var(--tx);}
+  .mt-score-wrap{flex:0 0 auto;min-width:100px;text-align:center;padding:0 8px;display:flex;flex-direction:column;align-items:center;justify-content:center;}
 .mt-score{font-family:'JetBrains Mono',monospace;font-size:20px;font-weight:700;color:var(--tx);line-height:1;letter-spacing:-.5px;}
 .mt-sport{font-size:9px;color:var(--tx4);background:var(--card3);padding:2px 8px;border-radius:3px;margin-top:4px;display:inline-block;font-weight:700;text-transform:uppercase;letter-spacing:.6px;border:1px solid var(--line);}
 .mt-meta{width:106px;flex-shrink:0;text-align:right;font-size:11px;color:var(--tx3);}
@@ -462,7 +462,7 @@ body::before{
   .hero-body{padding:20px 16px;}
   .cd-n{font-size:22px;min-width:44px;padding:5px 7px;}
   .hero-stats{gap:16px;}.hs-n{font-size:26px;}
-  .mt-team{min-width:78px;}.mt-name{max-width:65px;}.mt-score-wrap{width:78px;}
+    .mt-team{min-width:0;}.mt-name{max-width:none;}
   .pgrid{grid-template-columns:repeat(2,1fr);gap:10px;}
   .a-bid{font-size:42px;}
   .sport-sel{grid-template-columns:repeat(2,1fr);}

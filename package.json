@@ -9,7 +9,8 @@
     "server": "nodemon server/index.js",
     "client": "cd client && npm start",
     "start": "node server/index.js",
-    "seed": "node server/seed.js"
+    "seed": "node server/seed.js",
+    "backfill:sport-details": "node server/backfillSportDetails.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

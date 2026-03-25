@@ -1,26 +1,26 @@
 import React,{useState,useEffect} from 'react';
-import {TL,FormDots,Ldr} from '../components/Shared';
+import {TL,FormDots,Ldr,SportIcon} from '../components/Shared';
 import {apiStandings,getSocket} from '../lib/api';
-const SPORTS=[['cricket','🏏','Cricket'],['football','⚽','Football'],['badminton','🏸','Badminton'],['table_tennis','🏓','Table Tennis'],['carrom','🎯','Carrom']];
+const SPORTS=[['cricket','Cricket'],['football','Football'],['badminton','Badminton'],['table_tennis','Table Tennis'],['carrom','Carrom']];
 export default function Standings(){
   const [sport,setSport]=useState('cricket');
   const [data,setData]=useState([]);
   const [loading,setLoading]=useState(true);
-  const load=s=>{setLoading(true);apiStandings(s).then(d=>{setData(Array.isArray(d)?d:[]);setLoading(false);});};
+  const load=s=>{setLoading(true);apiStandings(s).then(d=>{setData(Array.isArray(d)?d:[]);setLoading(false);}).catch(()=>setLoading(false));};
   useEffect(()=>load(sport),[sport]);
   useEffect(()=>{const s=getSocket();s.on('standings:update',()=>load(sport));return()=>s.off('standings:update');},[sport]);
   return (
     <div className="pg fade-up">
       <div className="sport-sel stagger">
-        {SPORTS.map(([k,ic,lb])=>(
+        {SPORTS.map(([k,lb])=>(
           <button key={k} className={`sport-btn${sport===k?' on':''}`} onClick={()=>setSport(k)}>
-            <div style={{fontSize:26,marginBottom:6}}>{ic}</div>{lb}
+            <div style={{fontSize:26,marginBottom:6,display:'flex',justifyContent:'center'}}><SportIcon sport={k} style={{fontSize: 26}} /></div>{lb}
           </button>
         ))}
       </div>
       <div className="card">
         <div className="ch">
-          <span className="ct">{SPORTS.find(([k])=>k===sport)?.[1]} {SPORTS.find(([k])=>k===sport)?.[2]} — Points table</span>
+          <span className="ct" style={{display: 'flex', alignItems: 'center', gap: 6}}><SportIcon sport={SPORTS.find(([k])=>k===sport)?.[0]} style={{fontSize: 20}} /> {SPORTS.find(([k])=>k===sport)?.[1]} — Points table</span>
           <div style={{display:'flex',alignItems:'center',gap:7}}>
             <div style={{width:8,height:8,borderRadius:1,background:'var(--grn)'}}/><span style={{fontSize:10,color:'var(--tx3)',fontWeight:700,textTransform:'uppercase',letterSpacing:'.8px'}}>Top 2 qualify</span>
           </div>

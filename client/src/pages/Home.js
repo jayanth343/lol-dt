@@ -1,6 +1,6 @@
 import React,{useState,useEffect} from 'react';
 import {useNavigate} from 'react-router-dom';
-import {TL,FormDots,MatchRow,Ldr,SportFilt} from '../components/Shared';
+import {TL,FormDots,MatchRow,Ldr,SportFilt,SportIcon} from '../components/Shared';
 import {apiMatches,apiStandings,apiTeams,apiPlayers,getSocket} from '../lib/api';
 
 export default function Home(){
@@ -31,6 +31,32 @@ export default function Home(){
   useEffect(()=>{
     const s=getSocket();const h=({matchId,team1Score,team2Score,status})=>setMatches(p=>p.map(m=>m._id===matchId?{...m,team1Score,team2Score,status}:m));
     s.on('match:score',h);return()=>s.off('match:score',h);
+  },[]);
+
+  // Real-time DB: standings, teams, players, new matches
+  useEffect(()=>{
+    const s=getSocket();
+    // Standings changed → re-fetch
+    const onStandings=()=>apiStandings('cricket').then(d=>setStandings(Array.isArray(d)?d:[]));
+    // Team budget updated (auction sold)
+    const onTeam=({team})=>setTeams(p=>p.map(t=>t._id===team._id?{...t,...team}:t));
+    // Player status/team changed
+    const onPlayer=({player})=>setPlayers(p=>p.map(x=>x._id===player._id?{...x,...player}:x));
+    const onPlayerNew=({player})=>setPlayers(p=>[...p,player]);
+    // New match added by admin
+    const onMatchNew=({match})=>setMatches(p=>[...p,match]);
+    s.on('standings:update',onStandings);
+    s.on('db:team:updated',onTeam);
+    s.on('db:player:updated',onPlayer);
+    s.on('db:player:new',onPlayerNew);
+    s.on('db:match:new',onMatchNew);
+    return()=>{
+      s.off('standings:update',onStandings);
+      s.off('db:team:updated',onTeam);
+      s.off('db:player:updated',onPlayer);
+      s.off('db:player:new',onPlayerNew);
+      s.off('db:match:new',onMatchNew);
+    };
   },[]);
 
   const all=sport==='all'?matches:matches.filter(m=>m.sport===sport);
@@ -175,7 +201,7 @@ export default function Home(){
                 <TL color={p.team?.color||'#555'} abbr={p.team?.abbreviation||p.name.substring(0,2)} size={34}/>
                 <div style={{flex:1,minWidth:0}}>
                   <div style={{fontWeight:600,fontSize:13,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{p.name}</div>
-                  <div style={{fontSize:11,color:'var(--tx3)',marginTop:1}}>{(p.sports||[]).map(s=>({cricket:'🏏',football:'⚽',badminton:'🏸',table_tennis:'🏓',carrom:'🎯'}[s]||'')).join('')} {p.team?.name||''}</div>
+                  <div style={{fontSize:11,color:'var(--tx3)',marginTop:1, display: 'flex', alignItems: 'center', gap: 2}}>{(p.sports||[]).map(s=><SportIcon key={s} sport={s} style={{fontSize: 12}} />)} {p.team?.name||''}</div>
                 </div>
                 <div className="pstat" style={{color:'var(--gold)',fontFamily:"'JetBrains Mono',monospace",fontWeight:700}}>{p.bidPrice||p.basePrice} pts</div>
               </div>
@@ -215,3 +241,4 @@ export default function Home(){
     </div>
   );
 }
+

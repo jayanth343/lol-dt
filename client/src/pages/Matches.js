@@ -1,15 +1,27 @@
 import React,{useState,useEffect} from 'react';
 import {useNavigate} from 'react-router-dom';
 import {MatchRow,Ldr,SportFilt} from '../components/Shared';
-import {apiMatches,getSocket} from '../lib/api';
+import {apiMatches,apiUpdateMatch,getSocket} from '../lib/api';
+import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 export default function Matches(){
   const nav=useNavigate();
+  const { isAdmin } = useAuth();
+  const { showToast } = useToast();
   const [matches,setMatches]=useState([]);
   const [sport,setSport]=useState('all');
   const [tab,setTab]=useState('all');
   const [loading,setLoading]=useState(true);
-  useEffect(()=>{apiMatches().then(d=>{setMatches(Array.isArray(d)?d:[]);setLoading(false);});},[]); 
+  useEffect(()=>{apiMatches().then(d=>{setMatches(Array.isArray(d)?d:[]);setLoading(false);}).catch(()=>setLoading(false));},[]); 
   useEffect(()=>{const s=getSocket();const h=({matchId,team1Score,team2Score,status})=>setMatches(p=>p.map(m=>m._id===matchId?{...m,team1Score,team2Score,status}:m));s.on('match:score',h);return()=>s.off('match:score',h);},[]);
+  const startMatch = async (e, matchId) => {
+    e.stopPropagation();
+    const res = await apiUpdateMatch(matchId, { status: 'live' });
+    if (res?.error) return showToast(res.error, 'error');
+    setMatches((prev) => prev.map((m) => m._id === matchId ? { ...m, status: 'live' } : m));
+    getSocket().emit('match:setStatus', { matchId, status: 'live' });
+    showToast('Match started', 'success');
+  };
   const filtered=matches.filter(m=>(sport==='all'||m.sport===sport)&&(tab==='all'||m.status===tab));
   const grouped=filtered.reduce((a,m)=>{const k=new Date(m.matchDate).toDateString();if(!a[k])a[k]=[];a[k].push(m);return a;},{});
   if(loading) return <div className="pg"><Ldr/></div>;
@@ -26,7 +38,20 @@ export default function Matches(){
         {Object.entries(grouped).map(([date,ms])=>(
           <div key={date}>
             <div className="sdl">{new Date(date).toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long'})}</div>
-            {ms.map(m=><MatchRow key={m._id} match={m} onClick={()=>nav(`/matches/${m._id}`)}/>)}
+            {ms.map(m=>(
+              <div key={m._id} style={{position:'relative'}}>
+                <MatchRow match={m} onClick={()=>nav(`/matches/${m._id}`)} />
+                {isAdmin && m.status === 'upcoming' && (
+                  <button
+                    className="btn btn-ok btn-sm"
+                    onClick={(e) => startMatch(e, m._id)}
+                    style={{position:'absolute',right:12,top:12,zIndex:2}}
+                  >
+                    Start Match
+                  </button>
+                )}
+              </div>
+            ))}
           </div>
         ))}
         {filtered.length===0&&<div className="empty"><div className="ei">📅</div><div className="eh">No matches found</div></div>}
@@ -34,3 +59,4 @@ export default function Matches(){
     </div>
   );
 }
+

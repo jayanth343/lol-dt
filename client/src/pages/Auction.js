@@ -1,9 +1,10 @@
 import React,{useState,useEffect,useRef,useCallback} from 'react';
-import {TL,Ldr} from '../components/Shared';
+import {TL,Ldr,SportIcon} from '../components/Shared';
+import {PlayerFlipCard} from '../components/PlayerCard';
 import {apiAuctionState,apiAuctionAvailable,apiAuctionStart,apiAuctionBid,apiAuctionSold,apiAuctionUnsold,apiAuctionPause,apiTeams,getSocket} from '../lib/api';
 import {useAuth} from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 
-const SI={cricket:'🏏',football:'⚽',badminton:'🏸',table_tennis:'🏓',carrom:'🎯'};
 const COUNTDOWN_SECS=30;
 
 function CountdownRing({seconds,total=COUNTDOWN_SECS}){
@@ -27,40 +28,10 @@ function CountdownRing({seconds,total=COUNTDOWN_SECS}){
   );
 }
 
-function PlayerCard({player,bidPulse}){
-  const [revealed,setRevealed]=useState(false);
-  const prevId=useRef(null);
-  useEffect(()=>{
-    if(!player) return;
-    if(player._id!==prevId.current){prevId.current=player._id;setRevealed(false);setTimeout(()=>setRevealed(true),80);}
-  },[player?._id]);
-  if(!player) return null;
-  const initials=player.name?.split(' ').map(w=>w[0]).join('').substring(0,2)||'?';
-  const sportColor={cricket:'#e74c3c',football:'#27ae60',badminton:'#8e44ad',table_tennis:'#2980b9',carrom:'#d35400'}[player.sports?.[0]]||'#555';
-  return(
-    <div style={{transform:revealed?'translateY(0) scale(1)':'translateY(20px) scale(.97)',opacity:revealed?1:0,transition:'all .45s cubic-bezier(.22,1,.36,1)'}}>
-      <div style={{width:80,height:80,borderRadius:'50%',margin:'0 auto 14px',
-        background:`radial-gradient(circle at 35% 35%, ${sportColor}cc, ${sportColor}55)`,
-        display:'flex',alignItems:'center',justifyContent:'center',
-        fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:28,color:'#fff',
-        border:'3px solid var(--gold)',
-        boxShadow:bidPulse?'0 0 0 8px var(--gold-glow),0 0 32px var(--gold-glow)':'0 0 18px var(--gold-glow)',
-        transition:'box-shadow .3s'}}>{initials}</div>
-      <div style={{fontFamily:"'Syne',sans-serif",fontSize:26,fontWeight:800,letterSpacing:'-.5px'}}>{player.name}</div>
-      <div style={{color:'var(--tx3)',fontSize:13,marginTop:3}}>{player.department}</div>
-      <div style={{display:'flex',gap:6,justifyContent:'center',marginTop:10,flexWrap:'wrap'}}>
-        {(player.sports||[]).map(s=><span key={s} className="stag">{SI[s]} {s.replace('_',' ')}</span>)}
-        {player.skillLevel&&<span className="sktag">{player.skillLevel}</span>}
-      </div>
-      <div style={{marginTop:14,padding:'8px 20px',background:'var(--card2)',borderRadius:'var(--r)',display:'inline-block',fontSize:12,color:'var(--tx3)',border:'1px solid var(--line)'}}>
-        Base: <strong style={{color:'var(--tx)',fontFamily:"'JetBrains Mono',monospace"}}>{player.basePrice} pts</strong>
-      </div>
-    </div>
-  );
-}
 
 export default function Auction(){
   const {isAdmin,isOwner,teamId}=useAuth();
+  const { showToast } = useToast();
   const [state,setState]=useState(null);
   const [teams,setTeams]=useState([]);
   const [avail,setAvail]=useState([]);
@@ -68,7 +39,6 @@ export default function Auction(){
   const [tab,setTab]=useState('q');
   const [loading,setLoading]=useState(true);
   const [bidding,setBidding]=useState(false);
-  const [msg,setMsg]=useState('');
   const [countdown,setCountdown]=useState(COUNTDOWN_SECS);
   const [bidPulse,setBidPulse]=useState(false);
   const countRef=useRef(null);
@@ -94,6 +64,8 @@ export default function Auction(){
   const stopCountdown=useCallback(()=>{clearInterval(countRef.current);setCountdown(COUNTDOWN_SECS);},[]);
   useEffect(()=>()=>clearInterval(countRef.current),[]);
 
+  const flash=useCallback((m,severity='info')=>showToast(m,severity),[showToast]);
+
   useEffect(()=>{
     const socket=getSocket();
     socket.on('auction:update',data=>{
@@ -115,26 +87,32 @@ export default function Auction(){
     socket.on('auction:sold',({player,team,price})=>{
       setSold(p=>[{player,team,price},...p]);
       setAvail(p=>p.filter(x=>x._id!==player._id));
-      flash(`🎉 ${player.name} sold to ${team.name} for ${price} pts!`);
+      flash(`${player.name} sold to ${team.name} for ${price} pts!`,'success');
     });
-    return()=>{socket.off('auction:update');socket.off('auction:sold');};
-  },[resetCountdown,stopCountdown]);
-
-  const flash=m=>{setMsg(m);setTimeout(()=>setMsg(''),4000);};
-  const handleSold=async()=>{const r=await apiAuctionSold();if(r?.error)flash('❌ '+r.error);};
-  const handleUnsold=async()=>{await apiAuctionUnsold();flash('Player marked unsold.');};
+    // DB-level team budget sync (change stream)
+    socket.on('team:budget',({teamId,spent,budget})=>{
+      setTeams(p=>p.map(t=>String(t._id)===String(teamId)?{...t,spent,budget}:t));
+    });
+    socket.on('db:player:updated',({player})=>{
+      if(player.status!=='available')
+        setAvail(p=>p.filter(x=>x._id!==player._id));
+    });
+    return()=>{socket.off('auction:update');socket.off('auction:sold');socket.off('team:budget');socket.off('db:player:updated');};
+  },[flash,resetCountdown,stopCountdown]);
+  const handleSold=async()=>{const r=await apiAuctionSold();if(r?.error)flash(r.error,'error');};
+  const handleUnsold=async()=>{await apiAuctionUnsold();flash('Player marked unsold.','success');};
   const handlePause=async()=>await apiAuctionPause();
   const handleStart=async pid=>{
     lastBidRef.current=0;
     const r=await apiAuctionStart({playerId:pid});
-    if(r?.error)flash('❌ '+r.error);else resetCountdown();
+    if(r?.error)flash(r.error,'error');else resetCountdown();
   };
   const placeBid=async amount=>{
-    if(!teamId){flash('❌ Login as team owner to bid');return;}
-    if(!state||state.status!=='active'){flash('❌ Auction not active');return;}
-    if(amount<=state.currentBid){flash(`❌ Bid must exceed ${state.currentBid} pts`);return;}
+    if(!teamId){flash('Login as team owner to bid','warning');return;}
+    if(!state||state.status!=='active'){flash('Auction not active','warning');return;}
+    if(amount<=state.currentBid){flash(`Bid must exceed ${state.currentBid} pts`,'warning');return;}
     setBidding(true);const r=await apiAuctionBid({teamId:String(teamId),amount});setBidding(false);
-    if(r?.error)flash('❌ '+r.error);
+    if(r?.error)flash(r.error,'error');
   };
 
   if(loading) return <div className="pg"><Ldr/></div>;
@@ -171,8 +149,6 @@ export default function Auction(){
         </div>
       </div>
 
-      {msg&&<div className={`al ${msg.startsWith('❌')?'al-er':msg.startsWith('🎉')?'al-ok':'al-in'}`} style={{marginBottom:16}}>{msg}</div>}
-
       <div className="two-col">
         <div className="col">
           <div className={`aspot${active?' active-auction':''}`}
@@ -188,11 +164,12 @@ export default function Auction(){
               {state?.status==='closed'&&<><div style={{fontSize:52,marginBottom:12}}>🏆</div><div style={{fontFamily:"'Syne',sans-serif",fontSize:28,fontWeight:800}}>Auction Complete!</div><div style={{color:'var(--tx3)',marginTop:8}}>All players allocated.</div></>}
               {(state?.status==='waiting'||!player)&&state?.status!=='closed'&&state?.status!=='sold'&&<><div style={{fontSize:44,marginBottom:12}}>⏳</div><div style={{fontFamily:"'Syne',sans-serif",fontSize:22,fontWeight:800}}>Waiting to Start</div><div style={{color:'var(--tx3)',marginTop:8,fontSize:13}}>{isAdmin?'Select a player below to begin.':'Admin will start shortly.'}</div></>}
               {state?.status==='sold'&&player&&<div className="sold-pop"><div style={{fontSize:44,marginBottom:8}}>🎉</div><div style={{fontFamily:"'Syne',sans-serif",fontSize:20,fontWeight:800,color:'var(--gold)'}}>SOLD!</div><div style={{fontFamily:"'Syne',sans-serif",fontSize:18,fontWeight:700,marginTop:4}}>{player.name}</div>{lead&&<div style={{color:'var(--tx3)',fontSize:13,marginTop:4}}>→ {lead.name} for <strong style={{color:'var(--gold)',fontFamily:"'JetBrains Mono',monospace"}}>{state.currentBid} pts</strong></div>}</div>}
-              {paused&&player&&<><div style={{fontFamily:"'Syne',sans-serif",fontSize:22,fontWeight:800,color:'var(--gold)',marginBottom:8}}>Paused</div><PlayerCard player={player} bidPulse={false}/><div className="a-bid idle" style={{marginTop:8}}>{state.currentBid||0}</div>{isAdmin&&<button className="btn btn-b" style={{marginTop:14}} onClick={handlePause}>▶ Resume</button>}</>}
+              {paused&&player&&<><div style={{fontFamily:"'Syne',sans-serif",fontSize:22,fontWeight:800,color:'var(--gold)',marginBottom:8}}>Paused</div><PlayerFlipCard player={player} bidPulse={false}/><div className="a-bid idle" style={{marginTop:8}}>{state.currentBid||0}</div>{isAdmin&&<button className="btn btn-b" style={{marginTop:14}} onClick={handlePause}>▶ Resume</button>}</>}
               {active&&player&&<>
-                <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:20,marginBottom:8}}>
+                {/* Card reveal + countdown stacked */}
+                <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:14,marginBottom:8}}>
+                  <PlayerFlipCard player={player} bidPulse={bidPulse}/>
                   <CountdownRing seconds={countdown}/>
-                  <PlayerCard player={player} bidPulse={bidPulse}/>
                 </div>
                 <div style={{margin:'14px 0 5px'}}>
                   <div style={{fontSize:10,color:'var(--tx4)',textTransform:'uppercase',letterSpacing:'1.2px',marginBottom:5,fontWeight:700}}>Current Bid</div>
@@ -231,7 +208,7 @@ export default function Auction(){
               {avail.slice(0,5).map(p=>(
                 <div key={p._id} style={{display:'flex',alignItems:'center',gap:12,padding:'10px 14px',background:'var(--card2)',borderRadius:'var(--r)',border:'1px solid var(--line)'}}>
                   <div style={{width:34,height:34,borderRadius:'50%',background:'var(--red-fill)',border:'1px solid var(--red-bdr)',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:12,color:'var(--red)',flexShrink:0}}>{p.name.split(' ').map(w=>w[0]).join('').substring(0,2)}</div>
-                  <div style={{flex:1,minWidth:0}}><div style={{fontWeight:600,fontSize:13,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{p.name}</div><div style={{fontSize:11,color:'var(--tx3)'}}>{(p.sports||[]).map(s=>SI[s]).join(' ')} · {p.basePrice} pts base</div></div>
+                  <div style={{flex:1,minWidth:0}}><div style={{fontWeight:600,fontSize:13,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{p.name}</div><div style={{fontSize:11,color:'var(--tx3)', display: 'flex', alignItems: 'center', gap: 4}}>{(p.sports||[]).map(s=><SportIcon key={s} sport={s} style={{fontSize: 12}} />)} &middot; {p.basePrice} pts base</div></div>
                   <button className="btn btn-p btn-sm" onClick={()=>handleStart(p._id)}>Start →</button>
                 </div>
               ))}

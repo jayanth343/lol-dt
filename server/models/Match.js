@@ -64,9 +64,26 @@ const PointsLiveSchema = new mongoose.Schema({
 }, { _id: false });
 
 const MatchSchema = new mongoose.Schema({
-  sport:    { type: String, enum: ['cricket','football','badminton','table_tennis','carrom'], required: true },
-  team1Id:  { type: mongoose.Schema.Types.ObjectId, ref: 'Team', required: true },
-  team2Id:  { type: mongoose.Schema.Types.ObjectId, ref: 'Team', required: true },
+  sport:    { type: String, required: true },
+  sportRef: { type: mongoose.Schema.Types.ObjectId, ref: 'Sport', default: null },
+  sportDetails: {
+    name: { type: String, default: '' },
+    icon: { type: String, default: '🏆' },
+    scoringType: { type: String, default: 'points' },
+    customSettings: {
+      unit: { type: String, default: 'Points' },
+      pointsToWin: { type: Number, default: 21 },
+      gamesPerMatch: { type: Number, default: 1 },
+      minPointDelta: { type: Number, default: 0 },
+      allowDraw: { type: Boolean, default: false },
+      maxDurationMins: { type: Number, default: 0 },
+      extraRules: { type: String, default: '' }
+    }
+  },
+  tournamentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Tournament' },
+  knockoutPosition: { type: Object, default: null }, // e.g. { round: 1, matchNum: 1, nextMatchId, ... }
+  team1Id:  { type: mongoose.Schema.Types.ObjectId, ref: 'Team', default: null },
+  team2Id:  { type: mongoose.Schema.Types.ObjectId, ref: 'Team', default: null },
   team1Score: { type: String, default: '' },
   team2Score: { type: String, default: '' },
   winnerId:   { type: mongoose.Schema.Types.ObjectId, ref: 'Team', default: null },
@@ -74,6 +91,9 @@ const MatchSchema = new mongoose.Schema({
   venue:      { type: String, default: '' },
   matchDate:  { type: Date, required: true },
   matchTime:  { type: String, default: '' },
+  startedAt:  { type: Date, default: null },
+  endedAt:    { type: Date, default: null },
+  actualDurationMins: { type: Number, default: 0 },
   round:      { type: String, default: 'Group Stage' },
   scorerId:   { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
 

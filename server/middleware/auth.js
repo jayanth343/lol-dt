@@ -24,8 +24,8 @@ const requireAdmin = (req, res, next) => {
 };
 
 const requireOwnerOrAdmin = (req, res, next) => {
-  if (!['admin', 'team_owner'].includes(req.user?.role))
-    return res.status(403).json({ error: 'Team owner or admin only' });
+  if (!['admin', 'team_owner', 'captain'].includes(req.user?.role))
+    return res.status(403).json({ error: 'Team owner, captain or admin only' });
   next();
 };
 

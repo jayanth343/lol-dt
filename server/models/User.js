@@ -6,7 +6,7 @@ const UserSchema = new mongoose.Schema({
   name:     { type: String, required: true, trim: true },
   email:    { type: String, required: true, unique: true, lowercase: true },
   password: { type: String, required: true, minlength: 6 },
-  role:     { type: String, enum: ['admin', 'team_owner', 'viewer'], default: 'viewer' },
+  role:     { type: String, enum: ['admin', 'team_owner', 'captain', 'viewer'], default: 'viewer' },
   teamId:   { type: mongoose.Schema.Types.ObjectId, ref: 'Team', default: null },
   avatar:   { type: String, default: '' },
 }, { timestamps: true });

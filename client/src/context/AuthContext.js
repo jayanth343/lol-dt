@@ -43,11 +43,12 @@ export default function AuthProvider({ children }) {
 
   const role     = user?.role || 'viewer';
   const isAdmin  = role === 'admin';
+  const isCaptain = role === 'captain';
   const isOwner  = role === 'team_owner' || role === 'admin';
   const teamId   = user?.teamId?._id || user?.teamId || null;
 
   return (
-    <Ctx.Provider value={{ user, loading, role, isAdmin, isOwner, teamId, signIn, signUp, signOut }}>
+    <Ctx.Provider value={{ user, loading, role, isAdmin, isCaptain, isOwner, teamId, signIn, signUp, signOut }}>
       {!loading && children}
     </Ctx.Provider>
   );

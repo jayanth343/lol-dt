@@ -1,7 +1,6 @@
 import React,{useState,useEffect} from 'react';
-import {TL,Ldr,SportFilt} from '../components/Shared';
-import {apiPlayers} from '../lib/api';
-const SI={cricket:'🏏',football:'⚽',badminton:'🏸',table_tennis:'🏓',carrom:'🎯'};
+import {TL,Ldr,SportFilt,SportIcon} from '../components/Shared';
+import {apiPlayers,getSocket} from '../lib/api';
 export default function Players(){
   const [players,setPlayers]=useState([]);
   const [search,setSearch]=useState('');
@@ -9,7 +8,20 @@ export default function Players(){
   const [status,setStatus]=useState('all');
   const [sel,setSel]=useState(null);
   const [loading,setLoading]=useState(true);
-  useEffect(()=>{apiPlayers().then(d=>{setPlayers(Array.isArray(d)?d:[]);setLoading(false);});},[]);
+  useEffect(()=>{apiPlayers().then(d=>{setPlayers(Array.isArray(d)?d:[]);setLoading(false);}).catch(()=>setLoading(false));},[]);
+  useEffect(()=>{
+    const s=getSocket();
+    s.on('auction:sold',({player,team,price})=>{
+      setPlayers(p=>p.map(x=>x._id===player._id?{...x,status:'sold',teamId:team,bidPrice:price}:x));
+    });
+    s.on('auction:update',(state)=>{
+      if(state.status==='waiting'&&state.currentPlayer===null){
+        // player marked unsold — re-fetch to get accurate statuses
+        apiPlayers().then(d=>{if(Array.isArray(d))setPlayers(d);});
+      }
+    });
+    return()=>{s.off('auction:sold');s.off('auction:update');};
+  },[]);
   const filtered=players.filter(p=>{
     const ok=!search||p.name.toLowerCase().includes(search.toLowerCase())||p.department.toLowerCase().includes(search.toLowerCase());
     return ok&&(sport==='all'||p.sports.includes(sport))&&(status==='all'||p.status===status);
@@ -52,7 +64,7 @@ export default function Players(){
                   <div style={{fontWeight:600,fontSize:13,marginBottom:2}}>{p.name}</div>
                   <div style={{fontSize:11,color:'var(--tx3)',marginBottom:8}}>{p.department}</div>
                   <div style={{display:'flex',flexWrap:'wrap',gap:3,justifyContent:'center',marginBottom:7}}>
-                    {p.sports.map(s=><span key={s} className="stag">{SI[s]}</span>)}
+                      {p.sports.map(s=><span key={s} className="stag" style={{display: 'inline-flex'}}><SportIcon sport={s} style={{fontSize: 12}} /></span>)}
                     {p.skillLevel&&<span className="sktag">{p.skillLevel}</span>}
                   </div>
                   <div style={{fontSize:10,fontWeight:700,color:p.status==='available'?'var(--blue)':p.status==='sold'?'var(--grn)':'var(--tx3)',display:'flex',alignItems:'center',justifyContent:'center',gap:4,textTransform:'uppercase',letterSpacing:'.5px'}}>
@@ -81,7 +93,7 @@ export default function Players(){
                 ))}
               </div>
               <div style={{display:'flex',flexWrap:'wrap',gap:5}}>
-                {player.sports.map(s=><span key={s} className="stag" style={{fontSize:11,padding:'4px 9px'}}>{SI[s]} {s.replace('_',' ')}</span>)}
+                {player.sports.map(s=><span key={s} className="stag" style={{fontSize:11,padding:'4px 9px', display: 'inline-flex', alignItems: 'center', gap: 4}}><SportIcon sport={s} style={{fontSize: 14}} /> {s.replace('_',' ')}</span>)}
               </div>
               {pt&&<div style={{background:`${pt.color}18`,border:`1.5px solid ${pt.color}35`,borderRadius:'var(--r-lg)',padding:14,display:'flex',alignItems:'center',gap:12}}>
                 <TL color={pt.color} abbr={pt.abbreviation} size={36}/>

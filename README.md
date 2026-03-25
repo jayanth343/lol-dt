@@ -12,6 +12,69 @@ Full-stack sports league management platform with **live scoring** (ball-by-ball
 | Database | MongoDB (Mongoose) |
 | Auth | JWT + bcrypt |
 
+
+---
+
+## 🔴 Enable Real-time DB Sync (Change Streams — Replica Set)
+
+MongoDB Change Streams require MongoDB to run as a **Replica Set**. This is a one-time setup and takes about 2 minutes.
+
+### Option A — Local MongoDB (Development)
+
+**1. Stop any running `mongod` instance first.**
+
+**2. Create a data directory for the replica set:**
+```bash
+mkdir -p ~/data/rs0
+```
+
+**3. Start MongoDB with replica set mode:**
+```bash
+mongod --replSet rs0 --dbpath ~/data/rs0 --port 27017
+```
+
+**4. In a new terminal, initialise the replica set (one time only):**
+```bash
+mongosh
+> rs.initiate()
+> exit
+```
+
+**5. Update your `.env`:**
+```
+MONGO_URI=mongodb://localhost:27017/lol_league?replicaSet=rs0
+```
+
+**6. Start the app normally:**
+```bash
+npm run dev
+```
+You should see in server logs:
+```
+✅ MongoDB connected
+👁  Change stream watching: matches
+👁  Change stream watching: players
+👁  Change stream watching: standings
+👁  Change stream watching: teams
+✅ MongoDB Change Streams initialised
+```
+
+### Option B — MongoDB Atlas (Cloud, Recommended for Production)
+Atlas runs as a Replica Set by default — no configuration needed. Just paste your Atlas connection string into `.env`:
+```
+MONGO_URI=mongodb+srv://user:password@cluster.mongodb.net/lol_league
+```
+
+### What real-time DB sync gives you
+| What changes | Who sees it instantly |
+|---|---|
+| Admin updates a match score via REST/Admin panel | All viewers on Matches, MatchDetail, Home |
+| Player sold in auction | Players page, Home sidebar, Auction page |
+| Standings recalculated after match | Standings page, Home points table |
+| Team budget deducted | Auction budget bars |
+| New match created by admin | Home & Matches page auto-update |
+| Any direct DB edit (even via MongoDB Compass) | Pushes to all connected clients |
+
 ---
 
 ## 🚀 Quick Start (3 steps)
@@ -34,6 +97,7 @@ mongod
 npm run install:all     # installs both server and client deps
 
 npm run seed            # seeds database with 8 teams, 14 players, 9 matches
+npm run backfill:sport-details   # backfills sport metadata into existing tournaments/matches
 ```
 
 Seed output shows login credentials:

@@ -31,7 +31,8 @@ app.use('/api/players',   require('./routes/players'));
 app.use('/api/matches',   require('./routes/matches'));
 app.use('/api/standings', require('./routes/standings'));
 app.use('/api/auction',   require('./routes/auction'));
-
+app.use('/api/tournaments', require('./routes/tournaments'));
+app.use('/api/sports', require('./routes/sports'));
 // Health check
 app.get('/api/health', (_, res) => res.json({ status: 'ok', time: new Date() }));
 
@@ -50,6 +51,18 @@ const PORT = process.env.PORT || 5000;
 mongoose.connect(process.env.MONGO_URI)
   .then(() => {
     console.log('✅ MongoDB connected');
+
+    // ── Real-time DB → Socket bridge (Change Streams) ─────────────
+    // Watches all collections and broadcasts any DB change to clients.
+    // Requires MongoDB to run as a Replica Set (see README for setup).
+    try {
+      require('./changeStreams')(io);
+    } catch (err) {
+      console.warn('⚠️  Change Streams not started:', err.message);
+      console.warn('   To enable real-time DB sync, run MongoDB as a Replica Set.');
+      console.warn('   See README → "Enable Change Streams (Replica Set)" section.');
+    }
+
     server.listen(PORT, () => console.log(`✅ Server running on http://localhost:${PORT}`));
   })
   .catch(err => {

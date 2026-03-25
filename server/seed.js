@@ -8,16 +8,28 @@ const Team     = require('./models/Team');
 const Player   = require('./models/Player');
 const Match    = require('./models/Match');
 const Standing = require('./models/Standing');
+const Sport    = require('./models/Sport');
 
 async function seed() {
   await mongoose.connect(process.env.MONGO_URI);
   console.log('Connected to MongoDB');
 
   // Clear all
-  await Promise.all([User, Team, Player, Match, Standing].map(M => M.deleteMany({})));
+  await Promise.all([User, Team, Player, Match, Standing, Sport].map(M => M.deleteMany({})));
   console.log('Cleared existing data');
 
   // ── Teams ──────────────────────────────────────────────────────
+    const sportsData = [
+    { name: 'cricket', icon: '??', customSettings: { unit: 'Runs', pointsToWin: 1, gamesPerMatch: 1, minPointDelta: 0, allowDraw: true, maxDurationMins: 180, extraRules: 'Overs limit' } },
+    { name: 'football', icon: '?', customSettings: { unit: 'Goals', pointsToWin: 1, gamesPerMatch: 1, minPointDelta: 0, allowDraw: true, maxDurationMins: 90, extraRules: '' } },
+    { name: 'badminton', icon: '??', customSettings: { unit: 'Points', pointsToWin: 21, gamesPerMatch: 3, minPointDelta: 2, allowDraw: false, maxDurationMins: 60, extraRules: 'Best of 3 games' } },
+    { name: 'table_tennis', icon: '??', customSettings: { unit: 'Points', pointsToWin: 11, gamesPerMatch: 5, minPointDelta: 2, allowDraw: false, maxDurationMins: 45, extraRules: 'Best of 5 games' } },
+    { name: 'carrom', icon: '??', customSettings: { unit: 'Points', pointsToWin: 25, gamesPerMatch: 1, minPointDelta: 0, allowDraw: false, maxDurationMins: 60, extraRules: '' } },
+  ];
+  const sports = await Sport.insertMany(sportsData);
+  console.log('? Sports seeded:', sports.length);
+
+
   const teams = await Team.insertMany([
     { name:'Thunder XI',    department:'Digital Products',       color:'#e74c3c', abbreviation:'THX', budget:500 },
     { name:'Blue Hawks',    department:'Infrastructure & Cloud', color:'#3498db', abbreviation:'BLH', budget:500 },
@@ -133,3 +145,6 @@ async function seed() {
 }
 
 seed().catch(e => { console.error(e); process.exit(1); });
+
+
+
